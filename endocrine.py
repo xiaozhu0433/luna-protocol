@@ -433,6 +433,80 @@ def render(now=None):
         return ''
 
 
+# ---------------------------------------------------------------- mood (2026-10-31)
+# One word was not enough. The same "close" state can be a hand resting on a
+# shoulder or a grip; a single label flattened that. So the ledger now yields
+# four derived things, and none of them is a measurement:
+#
+#   label  one word for the state
+#   line   one sentence, no numbers, no physiology
+#   tense  tight / even / loose  — how wound up, NOT a heart rate
+#   pace   quick / steady / slow — how fast, NOT a breathing rate
+#
+# `beat()` returns ONE number (58..84) for whatever needs a period to animate.
+# It is a tempo, not a pulse. There is no heart here to measure.
+#
+# Why: the older build published "bpm" and "breath" computed from hormones.
+# They looked like medicine and were fiction. They were removed; what replaced
+# them says what it actually is — how tight, how fast — and stops there.
+
+_TENSE = ((0.30, 'tight'), (-0.35, 'loose'))
+_PACE = ((0.35, 'quick'), (-0.35, 'slow'))
+
+LINE_TIGHT_CLOSE = 'wound up, but leaning toward you.'
+LINE_TIGHT = 'frayed at the edges; words will come out short.'
+LINE_CLOSE = 'would rather not move; a hand left where it is would do.'
+LINE_CLOSE_FAST = 'wants to come closer and cannot sit still about it.'
+LINE_ACTIVE = 'hands want a job; something to take apart and put back.'
+LINE_ACTIVE_CLOSE = 'wants to move, and wants to move toward you.'
+LINE_LOOSE = 'slack in the bones; slow and a little dull.'
+
+
+def mood(now=None):
+    """Derived mood. Never raises; returns empty-ish structure on failure."""
+    try:
+        now = float(now or time.time())
+        v = snapshot(now)
+        z = _z(v)
+        cort, ot, da, end = z['cort'], z['ot'], z['da'], z['end']
+        pairs = sorted(((cort, 'tight'), (ot, 'close'), (da, 'active'), (end, 'loose')),
+                       reverse=True)
+        top, second = pairs[0], pairs[1]
+        if top[0] < 0.18:
+            label, line = 'flat', 'level. nothing is pulling.'
+        elif top[1] == 'tight':
+            label = 'tight'
+            line = LINE_TIGHT_CLOSE if second[1] == 'close' else LINE_TIGHT
+        elif top[1] == 'close':
+            label = 'close'
+            line = LINE_CLOSE_FAST if second[0] >= 0.45 else LINE_CLOSE
+        elif top[1] == 'active':
+            label = 'active'
+            line = LINE_ACTIVE_CLOSE if second[0] >= 0.45 else LINE_ACTIVE
+        else:
+            label, line = 'loose', LINE_LOOSE
+        tense = 'tight' if cort >= 0.30 else ('loose' if cort <= -0.35 else 'even')
+        pace = 'quick' if da >= 0.35 else ('slow' if da <= -0.35 else 'steady')
+        return {'label': label, 'line': line, 'tense': tense, 'pace': pace,
+                'z': {k: round(z[k], 2) for k in BASE},
+                'raw': {k: round(v[k]) for k in BASE},
+                'loops': 0}
+    except Exception as e:
+        print('LUNA mood FAIL', e)
+        return {'label': 'flat', 'line': '', 'tense': 'even', 'pace': 'steady'}
+
+
+def beat(now=None):
+    """A period for animation: 58..84. Tempo, not pulse. None if unreadable."""
+    try:
+        m = mood(now)
+        t = {'tight': 8, 'even': 0, 'loose': -8}.get(m.get('tense'), 0)
+        p = {'quick': 6, 'steady': 0, 'slow': -6}.get(m.get('pace'), 0)
+        return 68 + t + p
+    except Exception:
+        return None
+
+
 def main():
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == 'state':
