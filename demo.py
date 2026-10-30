@@ -37,7 +37,10 @@ def main():
         if n % 5 == 0:                      # 每五条打一次曲线点
             v = E.snapshot(ts)
             bar = lambda x: '▓' * int(round(x / 100.0 * 20))
-            print('%s  da%3.0f %s' % (time.strftime('%H:%M', time.localtime(ts)), v['da'], bar(v['da'])))
+            m = E.mood(ts)
+            print('%s  da%3.0f %s   %-6s %s | %s' % (
+                time.strftime('%H:%M', time.localtime(ts)), v['da'], bar(v['da']),
+                m['label'], m['tense'] + '/' + m['pace'], m['line']))
     print('\n%d 条消息，%d 笔账。' % (n, E._conn().execute('select count(*) from luna_hormone').fetchone()[0]))
 
 
